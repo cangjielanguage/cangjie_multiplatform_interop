@@ -2514,17 +2514,26 @@ private func Java_CFFI_throw_exception(env: JNIEnv_ptr, exception: jthrowable) {
 }
 
 @FastNative
+foreign func Java_JNI_exceptionCheck(env: JNIEnv_ptr): jboolean
+
+protected func checkException(env: JNIEnv_ptr): jboolean {
+    unsafe {
+      Java_JNI_exceptionCheck(env)
+    }
+}
+
+@FastNative
 foreign func Java_JNI_exceptionOccured(env: JNIEnv_ptr): jthrowable
 
 protected func handlePendingException(env: JNIEnv_ptr) {
     unsafe {
-        let envCJ : JNINativeInterface_ = env.read().read()
-        var pendingException = Java_JNI_exceptionOccured(env)
 
         // check that pendingException is NULL
         // why this idiom is used here: pendingException.isNull() is shown to be much slower
         // this is a performance-critical check, so speed is more important than clarity
-        if (CPointer<UIntNative>(inout pendingException).read() != 0) {
+        if (Java_JNI_exceptionCheck(env) != 0) {
+            let envCJ : JNINativeInterface_ = env.read().read()
+            var pendingException = Java_JNI_exceptionOccured(env)
             envCJ.ExceptionClear(env)
             let clazz = Java_CFFI_getClass(env, "java/lang/Throwable")
             let id = Java_CFFI_getMethodID(env, clazz, "toString", "()Ljava/lang/String;")

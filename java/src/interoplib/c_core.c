@@ -151,6 +151,11 @@ typedef void** ppEnvType;
     return env;
 }
 
+jboolean Java_JNI_exceptionCheck(JNIEnv* env)
+{
+    return (*env)->ExceptionCheck(env);
+}
+
 /* wrapper around ExceptionOccured, for @FastNative */
 jthrowable Java_JNI_exceptionOccured(JNIEnv* env)
 {
