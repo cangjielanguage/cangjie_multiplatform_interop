@@ -409,7 +409,7 @@ protected struct JNINativeInterface_ {
     var NewWeakGlobalRef = CFunc<(JNIEnv_ptr, jobject) -> jweak>(CPointer<Unit>())
     var DeleteWeakGlobalRef = CFunc<(JNIEnv_ptr, jweak) -> Unit>(CPointer<Unit>())
 
-    private var ExceptionCheck = CPointer<Unit>()
+    protected var ExceptionCheck = CFunc<(env: JNIEnv_ptr) -> jboolean>(CPointer<Unit>())
 
     private var NewDirectByteBuffer = CPointer<Unit>()
     private var GetDirectBufferAddress = CPointer<Unit>()
@@ -2514,17 +2514,28 @@ private func Java_CFFI_throw_exception(env: JNIEnv_ptr, exception: jthrowable) {
 }
 
 @FastNative
+foreign func Java_JNI_exceptionCheck(env: JNIEnv_ptr): jboolean
+
+@Frozen
+protected func checkException(env: JNIEnv_ptr): Bool {
+    unsafe {
+        (Java_JNI_exceptionCheck(env) != 0u8)
+    }
+}
+
+@FastNative
 foreign func Java_JNI_exceptionOccured(env: JNIEnv_ptr): jthrowable
 
 protected func handlePendingException(env: JNIEnv_ptr) {
     unsafe {
-        let envCJ : JNINativeInterface_ = env.read().read()
+
         var pendingException = Java_JNI_exceptionOccured(env)
 
         // check that pendingException is NULL
         // why this idiom is used here: pendingException.isNull() is shown to be much slower
         // this is a performance-critical check, so speed is more important than clarity
         if (CPointer<UIntNative>(inout pendingException).read() != 0) {
+            let envCJ: JNINativeInterface_ = env.read().read()
             envCJ.ExceptionClear(env)
             let clazz = Java_CFFI_getClass(env, "java/lang/Throwable")
             let id = Java_CFFI_getMethodID(env, clazz, "toString", "()Ljava/lang/String;")
